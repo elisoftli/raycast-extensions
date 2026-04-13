@@ -25,10 +25,10 @@ No API keys or credentials required. The extension reads session files stored lo
 
 | Preference | Description | Default |
 |---|---|---|
-| Terminal | Terminal app used to resume sessions | Default (Terminal.app on macOS, Windows Terminal on Windows) |
-| Include WSL Sessions | Also search for sessions inside WSL distributions (Windows only, minor performance impact) | Off |
+| Terminal | Terminal app used to resume sessions | Windows Terminal |
+| Include WSL Sessions | Also search for sessions inside WSL distributions (minor performance impact) | Off |
 | IDE | IDE used to open project directories | VS Code |
 
-**Supported terminals:** Terminal.app, iTerm2, Ghostty, Warp, Windows Terminal, PowerShell, Command Prompt
+**Supported terminals:** Windows Terminal, PowerShell, Command Prompt, Warp
 
 **Supported IDEs:** VS Code, Cursor, Zed

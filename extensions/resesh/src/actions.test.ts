@@ -17,39 +17,23 @@ describe("bashCommand", () => {
 });
 
 // ---------------------------------------------------------------------------
-// escapeShellArg — platform-dependent (tests current platform)
+// escapeShellArg — Windows double-quote wrapping
 // ---------------------------------------------------------------------------
 
-const isMac = process.platform === "darwin";
-
 describe("escapeShellArg", () => {
-  // Import dynamically so we always get the fresh module with correct platform detection
-  it("wraps argument in quotes", async () => {
+  it("wraps argument in double quotes", async () => {
     const { escapeShellArg } = await import("./actions");
-    const result = escapeShellArg("hello world");
-
-    if (isMac) {
-      expect(result).toBe("'hello world'");
-    } else {
-      expect(result).toBe('"hello world"');
-    }
+    expect(escapeShellArg("hello world")).toBe('"hello world"');
   });
 
-  it("escapes internal quotes", async () => {
+  it("escapes internal double quotes", async () => {
     const { escapeShellArg } = await import("./actions");
-
-    if (isMac) {
-      const result = escapeShellArg("it's");
-      expect(result).toBe("'it'\\''s'");
-    } else {
-      const result = escapeShellArg('say "hello"');
-      expect(result).toBe('"say \\"hello\\""');
-    }
+    expect(escapeShellArg('say "hello"')).toBe('"say \\"hello\\""');
   });
 });
 
 // ---------------------------------------------------------------------------
-// resolveTerminal — platform-dependent (tests current platform)
+// resolveTerminal
 // ---------------------------------------------------------------------------
 
 describe("resolveTerminal", () => {
@@ -57,39 +41,13 @@ describe("resolveTerminal", () => {
     vi.clearAllMocks();
   });
 
-  it("resolves 'default' to platform-appropriate terminal", async () => {
+  it("resolves 'default' to Windows Terminal", async () => {
     const { resolveTerminal } = await import("./actions");
-    const result = resolveTerminal("default");
-    if (isMac) {
-      expect(result).toBe("terminal");
-    } else {
-      expect(result).toBe("wt");
-    }
+    expect(resolveTerminal("default")).toBe("wt");
   });
 
   it("returns valid terminal as-is", async () => {
     const { resolveTerminal } = await import("./actions");
-    if (isMac) {
-      expect(resolveTerminal("ghostty")).toBe("ghostty");
-    } else {
-      expect(resolveTerminal("powershell")).toBe("powershell");
-    }
-  });
-
-  it("falls back for invalid platform terminal", async () => {
-    const { resolveTerminal } = await import("./actions");
-    const { showToast } = await import("@raycast/api");
-
-    if (isMac) {
-      // Windows-only terminal on Mac should fall back
-      const result = resolveTerminal("wt");
-      expect(result).toBe("terminal");
-      expect(showToast).toHaveBeenCalled();
-    } else {
-      // Mac-only terminal on Windows should fall back
-      const result = resolveTerminal("iterm");
-      expect(result).toBe("wt");
-      expect(showToast).toHaveBeenCalled();
-    }
+    expect(resolveTerminal("powershell")).toBe("powershell");
   });
 });

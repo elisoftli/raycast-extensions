@@ -4,31 +4,17 @@ import {
   Clipboard,
   getPreferenceValues,
   Icon,
+  open,
   showInFinder,
   showToast,
   Toast,
 } from "@raycast/api";
-import { exec, execFile } from "child_process";
+import { exec } from "child_process";
 import { wslUncPath } from "./providers/wsl";
 import type { SessionInfo } from "./types";
 
-const isMac = process.platform === "darwin";
-
-const MAC_ONLY_TERMINALS = new Set(["terminal", "iterm", "ghostty"]);
-const WIN_ONLY_TERMINALS = new Set(["wt", "powershell", "cmd"]);
-
 export function resolveTerminal(pref: string): string {
-  if (pref === "default") return isMac ? "terminal" : "wt";
-
-  if (isMac && WIN_ONLY_TERMINALS.has(pref)) {
-    showToast({ style: Toast.Style.Failure, title: `${pref} is not available on macOS, using Terminal.app` });
-    return "terminal";
-  }
-  if (!isMac && MAC_ONLY_TERMINALS.has(pref)) {
-    showToast({ style: Toast.Style.Failure, title: `${pref} is not available on Windows, using Windows Terminal` });
-    return "wt";
-  }
-
+  if (pref === "default") return "wt";
   return pref;
 }
 
@@ -47,9 +33,6 @@ function toastOnError(label: string) {
 }
 
 export function escapeShellArg(s: string): string {
-  if (isMac) {
-    return `'${s.replace(/'/g, "'\\''")}'`;
-  }
   return `"${s.replace(/"/g, '\\"')}"`;
 }
 
@@ -58,69 +41,51 @@ export function bashCommand(dir: string, resumeCmd: string): string {
   return `export PATH="$HOME/.local/bin:$PATH" && cd '${escapedDir}' && ${resumeCmd}`;
 }
 
-function macAppleScriptLaunch(appName: string, session: SessionInfo, resumeCmd: string) {
-  const cmd = bashCommand(session.projectPath, resumeCmd);
-  const script = `tell application "${appName}"
-  activate
-  do script "${cmd.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"
-end tell`;
-  execFile("osascript", ["-e", script], toastOnError(appName));
-}
-
 function sessionUncPath(session: SessionInfo): string {
   return wslUncPath(session.wslDistro!, session.projectPath);
 }
 
-function openInTerminal(session: SessionInfo, resumeCmd: string) {
+async function openInTerminal(session: SessionInfo, resumeCmd: string) {
   const prefs = getPreferenceValues<Preferences>();
   const terminal = resolveTerminal(prefs.terminal ?? "default");
   const dir = session.projectPath;
-  const bashCmd = bashCommand(dir, resumeCmd);
 
-  if (isMac) {
-    switch (terminal) {
-      case "terminal":
-      case "iterm":
-      case "warp":
-        macAppleScriptLaunch(
-          terminal === "terminal" ? "Terminal" : terminal === "iterm" ? "iTerm" : "Warp",
-          session,
-          resumeCmd,
-        );
-        return;
-      case "ghostty":
-        execFile(
-          "/Applications/Ghostty.app/Contents/MacOS/ghostty",
-          ["-e", "/bin/bash", "-lc", bashCmd],
-          toastOnError("Ghostty"),
-        );
-        return;
-    }
-  } else {
-    // Windows: for WSL sessions resumeCmd already contains the full `wsl -d ...` command,
-    // so no working-directory flag is needed. For native sessions, set the working directory.
-    const winDir = session.wslDistro ? null : dir.replace(/\//g, "\\");
-    switch (terminal) {
-      case "wt":
-        exec(
-          winDir ? `wt.exe -d ${escapeShellArg(winDir)} cmd /k "${resumeCmd}"` : `wt.exe cmd /k "${resumeCmd}"`,
-          toastOnError("Windows Terminal"),
-        );
-        return;
-      case "powershell":
-        exec(
-          winDir
-            ? `start powershell -NoExit -Command "Set-Location ${escapeShellArg(winDir)}; ${resumeCmd}"`
-            : `start powershell -NoExit -Command "${resumeCmd}"`,
-          toastOnError("PowerShell"),
-        );
-        return;
-      case "cmd":
-        exec(
-          winDir ? `start cmd /k "cd /d ${winDir} && ${resumeCmd}"` : `start cmd /k "${resumeCmd}"`,
-          toastOnError("Command Prompt"),
-        );
-        return;
+  // For WSL sessions resumeCmd already contains the full `wsl -d ...` command,
+  // so no working-directory flag is needed. For native sessions, set the working directory.
+  const winDir = session.wslDistro ? null : dir.replace(/\//g, "\\");
+  switch (terminal) {
+    case "wt":
+      exec(
+        winDir ? `wt.exe -d ${escapeShellArg(winDir)} cmd /k "${resumeCmd}"` : `wt.exe cmd /k "${resumeCmd}"`,
+        toastOnError("Windows Terminal"),
+      );
+      return;
+    case "powershell":
+      exec(
+        winDir
+          ? `start powershell -NoExit -Command "Set-Location ${escapeShellArg(winDir)}; ${resumeCmd}"`
+          : `start powershell -NoExit -Command "${resumeCmd}"`,
+        toastOnError("PowerShell"),
+      );
+      return;
+    case "cmd":
+      exec(
+        winDir ? `start cmd /k "cd /d ${winDir} && ${resumeCmd}"` : `start cmd /k "${resumeCmd}"`,
+        toastOnError("Command Prompt"),
+      );
+      return;
+    case "warp": {
+      await Clipboard.copy(resumeCmd);
+      await showToast({
+        style: Toast.Style.Success,
+        title: "Resume command copied",
+        message: "Paste in Warp to resume",
+      });
+      const warpUrl = winDir
+        ? `warp://action/new_window?path=${encodeURIComponent(winDir)}`
+        : "warp://action/new_window";
+      await open(warpUrl);
+      return;
     }
   }
 }
@@ -129,9 +94,7 @@ function openInIDE(session: SessionInfo) {
   const prefs = getPreferenceValues<Preferences>();
   const ide = IDE_APPS[prefs.ide] ?? IDE_APPS.vscode;
 
-  if (isMac) {
-    execFile("open", ["-a", ide.name, session.projectPath], toastOnError(ide.name));
-  } else if (session.wslDistro) {
+  if (session.wslDistro) {
     exec(`${ide.cmd} --remote wsl+${session.wslDistro} ${escapeShellArg(session.projectPath)}`, toastOnError(ide.name));
   } else {
     exec(`${ide.cmd} ${escapeShellArg(session.projectPath.replace(/\//g, "\\"))}`, toastOnError(ide.name));

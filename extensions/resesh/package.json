@@ -6,7 +6,6 @@
   "icon": "extension-icon.png",
   "author": "elisoft",
   "platforms": [
-    "macOS",
     "Windows"
   ],
   "categories": [
@@ -42,38 +41,26 @@
           "value": "default"
         },
         {
-          "title": "Terminal.app (macOS)",
-          "value": "terminal"
+          "title": "Windows Terminal",
+          "value": "wt"
         },
         {
-          "title": "iTerm2 (macOS)",
-          "value": "iterm"
+          "title": "PowerShell",
+          "value": "powershell"
         },
         {
-          "title": "Ghostty (macOS)",
-          "value": "ghostty"
+          "title": "Command Prompt",
+          "value": "cmd"
         },
         {
           "title": "Warp",
           "value": "warp"
-        },
-        {
-          "title": "Windows Terminal (Windows)",
-          "value": "wt"
-        },
-        {
-          "title": "PowerShell (Windows)",
-          "value": "powershell"
-        },
-        {
-          "title": "Command Prompt (Windows)",
-          "value": "cmd"
         }
       ]
     },
     {
       "name": "includeWsl",
-      "title": "Include WSL Sessions (Windows)",
+      "title": "Include WSL Sessions",
       "description": "Also search for sessions inside WSL distributions (minor performance impact)",
       "type": "checkbox",
       "required": false,
